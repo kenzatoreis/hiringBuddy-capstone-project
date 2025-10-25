@@ -1,0 +1,18 @@
+Core Java
+Spring Boot
+Hibernate
+REST APIs
+gRPC
+GraphQL
+Angular
+React
+Vue
+JavaScript
+TypeScript
+HTML5
+CSS3
+docker
+kubernetes
+aws
+Springboot
+sql

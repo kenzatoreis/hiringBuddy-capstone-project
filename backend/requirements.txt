@@ -1,0 +1,32 @@
+bcrypt
+cryptography
+fastapi
+python-jose
+python-multipart
+SQLAlchemy
+uvicorn
+passlib
+# AI Agents & Orchestration
+crewai
+crewai_tools
+
+# Language model frameworks
+langchain
+langchain-community
+langchain-aws
+
+# Providers
+openai
+anthropic
+litellm
+
+# AWS SDK
+boto3
+
+# Document parsing
+python-docx
+
+# Jupyter 
+notebook
+PyPDF2==3.0.1
+email-validator>=2
