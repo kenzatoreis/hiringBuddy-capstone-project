@@ -1,0 +1,304 @@
+# =========================
+# VacuumAgent Simulation - Interactive Version
+# =========================
+# Hey! This is a simulation of a vacuum cleaning robot that moves through rooms
+# The robot has limited energy and needs to decide when to clean vs when to move
+import random  # We need randomness to create dirty rooms and simulate re-dirtying
+
+class VacuumAgent:
+    # ---------- Setting Up Our Robot ----------
+    def __init__(self, n_rooms=10, T=100, dirty_ratio=0.5, re_dirty_prob=0.1, seed=None, custom_rooms=None):
+        # How many rooms do we have? Default is 10
+        self.n = n_rooms
+
+        # Maximum number of actions the robot can take before we force it to stop
+        self.T = T
+
+        # Chance that a clean room becomes dirty again (life happens!)
+        self.re_dirty_prob = re_dirty_prob
+
+        # Set up our random number generator - if seed is given, results are reproducible
+        self.rng = random.Random(seed) if seed else random.Random()
+
+        # Create the environment (the rooms with their dirt levels)
+        # If someone gave us custom rooms, use those
+        if custom_rooms:
+            self.environment = custom_rooms
+            self.n = len(custom_rooms)  # Update number of rooms to match
+        else:
+            # Otherwise, randomly create rooms - some clean (0), some dirty (1-5)
+            self.environment = [
+                self.rng.randint(1,5) if self.rng.random() < dirty_ratio else 0
+                for _ in range(self.n)
+            ]
+
+        # Where does our robot start? Room 0 (leftmost room)
+        self.location = 0
+
+        # Give the robot some initial energy based on number of rooms
+        # Energy formula: 2.5 × number of rooms
+        self.energy = 2.5 * self.n
+
+        # Moving between rooms costs energy
+        self.move_cost = 2
+
+        # Keep a log of everything the robot does
+        self.actions = []
+
+        # Track which unique rooms we've cleaned (for statistics)
+        self.cleaned_rooms = set()
+
+        # Which way is the robot moving? 1 = right, -1 = left (zigzag pattern!)
+        self.direction = 1
+
+    # ---------- Robot's Sensors: What Can It See? ----------
+    def perceive(self):
+        """
+        The robot looks around and gathers information about its current situation
+        Returns a tuple: (where am I?, how dirty is this room?, how much energy do I have left?)
+        """
+        return (self.location, self.environment[self.location], self.energy)
+
+    # ---------- Robot's Actions: What Can It Do? ----------
+    def actuate(self, action):
+        """
+        This is where the robot actually DOES something based on its decision
+        It can: Suck (clean), move Right, move Left, or Stop
+        """
+        if action == 'Suck':
+            # Cleaning costs energy equal to the dirt level (dirtier = more energy)
+            cost = self.environment[self.location]
+            self.energy -= cost  # Spend the energy
+            self.environment[self.location] = 0  # Clean the room (set dirt to 0)
+            self.cleaned_rooms.add(self.location)  # Remember we cleaned this room
+            # Log what we did
+            self.actions.append(f"Suck(room={self.location}, cost={cost}) -> energy={self.energy:.1f}")
+
+        elif action == 'Right':
+            # Moving right costs fixed energy (move_cost = 2)
+            self.energy -= self.move_cost
+            self.location += 1  # Move to the next room
+            self.actions.append(f"MoveRight(to={self.location}, cost={self.move_cost}) -> energy={self.energy:.1f}")
+
+        elif action == 'Left':
+            # Moving left also costs fixed energy
+            self.energy -= self.move_cost
+            self.location -= 1  # Move to the previous room
+            self.actions.append(f"MoveLeft(to={self.location}, cost={self.move_cost}) -> energy={self.energy:.1f}")
+
+        elif action == 'Stop':
+            # Robot decided to stop (either done or out of energy)
+            self.actions.append("Stop")
+
+        else:
+            # Oops! Someone told the robot to do something impossible
+            raise ValueError("Unknown action")
+
+    # ---------- Robot's Brain: How Does It Decide What To Do? ----------
+    def reflex_agent_function(self, percept):
+        """
+        This is the robot's decision-making logic (its "AI")
+        It's a simple reflex agent: if dirty -> clean, else -> move in zigzag pattern
+        """
+        # Unpack what the robot sees
+        loc, dirt, energy = percept
+
+        # Can we afford to clean here? (have enough energy for the dirt level)
+        can_suck = (dirt > 0 and energy >= dirt)
+
+        # Can we afford to move? (have enough energy for movement cost)
+        can_move = energy >= self.move_cost
+
+        # PRIORITY 1: Always clean if there's dirt and we have energy for it
+        if can_suck:
+            return 'Suck'
+
+        # PRIORITY 2: Move in a zigzag pattern (sweep back and forth)
+        # If we hit the right wall, turn around and go left
+        if self.direction == 1 and loc == self.n - 1:
+            self.direction = -1
+        # If we hit the left wall, turn around and go right
+        elif self.direction == -1 and loc == 0:
+            self.direction = 1
+
+        # Try to keep moving in our current direction
+        if self.direction == 1 and loc < self.n - 1 and can_move:
+            return 'Right'  # Moving right
+        elif self.direction == -1 and loc > 0 and can_move:
+            return 'Left'  # Moving left
+
+        # If we can't clean and can't move, we're done
+        return 'Stop'
+
+    # ---------- Life Happens: Rooms Get Dirty Again ----------
+    def re_dirty_step(self):
+        """
+        Simulate real life: clean rooms might get dirty again!
+        Each clean room has a small chance (re_dirty_prob) to become dirty
+        """
+        for i in range(self.n):
+            # If the room is clean AND we get unlucky with randomness
+            if self.environment[i] == 0 and self.rng.random() < self.re_dirty_prob:
+                # Oops! This room got dirty again (random dirt level 1-5)
+                self.environment[i] = self.rng.randint(1,5)
+
+    # ---------- Are We Done Yet? ----------
+    def all_clean(self):
+        """Check if every single room is perfectly clean"""
+        return all(d == 0 for d in self.environment)
+
+    def no_meaningful_action_left(self):
+        """
+        Figure out if the robot is stuck and should give up
+        Stuck means: all rooms clean OR can't clean current room AND can't move
+        """
+        # If everything is clean, we're definitely done!
+        if self.all_clean():
+            return True
+
+        # Check if we're stuck at current location
+        here = self.environment[self.location]
+        can_suck_here = (here > 0) and (self.energy >= here)  # Can we clean here?
+        can_move = self.energy >= self.move_cost  # Can we move away?
+
+        # If we can't clean here AND can't move, we're stuck
+        return (not can_suck_here) and (not can_move)
+
+    # ---------- Let's Run The Whole Show! ----------
+    def run(self):
+        """
+        Main simulation loop - this is where everything happens!
+        The robot will keep going until: max steps reached, runs out of energy, or finishes
+        """
+        # Remember how much energy we started with (for statistics)
+        initial_energy = self.energy
+
+        # Show the starting conditions
+        print(f"\n=== Starting Simulation ===")
+        print(f"Initial rooms: {self.environment}")
+        print(f"Initial energy: {self.energy}")
+        print(f"Agent starts at room: {self.location}")
+        print("-" * 50)
+
+        # Main simulation loop - go for up to T steps
+        for step in range(1, self.T + 1):
+            # Step 1: Robot looks around (perception)
+            percept = self.perceive()
+
+            # Step 2: Robot decides what to do (thinking)
+            action = self.reflex_agent_function(percept)
+
+            # Step 3: If robot decided to stop, end the simulation
+            if action == 'Stop':
+                print(f"\nStep {step}: Agent decided to STOP")
+                break
+
+            # Step 4: Robot does the action (actuation)
+            self.actuate(action)
+            print(f"Step {step}: {self.actions[-1]}")
+
+            # Step 5: Life happens - rooms might get dirty again
+            self.re_dirty_step()
+
+            # Step 6: Check if we should give up (stuck or everything clean)
+            if self.no_meaningful_action_left():
+                print(f"\nStep {step}: No meaningful actions left - stopping")
+                break
+
+        # Print beautiful final results following professor's requirements
+        print("\n" + "=" * 60)
+        print("=== SIMULATION RESULTS ===")
+        print("=" * 60)
+
+        # Requirement 1: Final state of each room
+        print("\n1. FINAL STATE OF EACH ROOM:")
+        for i, dirt in enumerate(self.environment):
+            status = "Clean" if dirt == 0 else f"Dirty (level {dirt})"
+            print(f"   Room {i}: {status}")
+
+        # Requirement 2: Number of rooms cleaned
+        print(f"\n2. NUMBER OF ROOMS CLEANED: {len(self.cleaned_rooms)}")
+        print(f"   Cleaned rooms: {sorted(self.cleaned_rooms)}")
+
+        # Requirement 3: Total energy consumed
+        print(f"\n3. TOTAL ENERGY CONSUMED: {initial_energy - self.energy:.1f}")
+
+        # Requirement 4: Final remaining energy
+        print(f"\n4. FINAL REMAINING ENERGY: {self.energy:.1f}")
+
+        # Requirement 5: Sequence of actions taken
+        print(f"\n5. SEQUENCE OF ACTIONS TAKEN:")
+        for i, action in enumerate(self.actions, 1):
+            print(f"   {i}. {action}")
+
+        print("\n" + "=" * 60)
+
+        # Return results as a dictionary (useful for automated testing)
+        return {
+            "final_rooms": self.environment,
+            "rooms_cleaned_count": len(self.cleaned_rooms),
+            "total_energy_consumed": initial_energy - self.energy,
+            "final_energy": self.energy,
+            "actions": self.actions
+        }
+
+
+# =========================
+# Talk To The User - Get Their Input
+# =========================
+def get_user_input():
+    """
+    This function has a conversation with the user to set up the simulation
+    Much better than hardcoding values!
+    """
+    print("\n" + "=" * 60)
+    print("VACUUM AGENT SIMULATION - Interactive Mode")
+    print("=" * 60)
+
+    # Ask how many rooms (default 10 if they just press enter)
+    n_rooms = int(input("\nHow many rooms? (default 10): ") or "10")
+
+    # Ask maximum steps before forcing stop (default 100)
+    max_steps = int(input("Max number of steps? (default 100): ") or "100")
+
+    # Ask what percentage of rooms should start dirty (0.5 = 50%)
+    dirty_ratio = float(input("Ratio of dirty rooms (0.0-1.0, default 0.5): ") or "0.5")
+
+    # Ask probability that clean rooms become dirty again (0.1 = 10% chance)
+    re_dirty = float(input("Re-dirty probability (0.0-1.0, default 0.1): ") or "0.1")
+
+    # Ask if they want reproducible results (same seed = same random rooms every time)
+    use_seed = input("Use random seed for reproducibility? (y/n): ").strip().lower()
+    seed = int(input("  Enter seed number: ")) if use_seed == 'y' else None
+
+    # Package everything up and send it back
+    return {
+        'n_rooms': n_rooms,
+        'T': max_steps,
+        'dirty_ratio': dirty_ratio,
+        're_dirty_prob': re_dirty,
+        'seed': seed
+    }
+
+
+# =========================
+# Main Program Starts Here!
+# =========================
+if __name__ == "__main__":
+    # Get simulation parameters from the user
+    params = get_user_input()
+
+    # Create a robot with those parameters
+    agent = VacuumAgent(**params)
+
+    # Run the simulation and get results
+    results = agent.run()
+
+    # Ask if they want to try again with different settings
+    print("\n")
+    again = input("Run another simulation? (y/n): ").strip().lower()
+    if again == 'y':
+        # Start over with new parameters
+        params = get_user_input()
+        agent = VacuumAgent(**params)
+        results = agent.run()
