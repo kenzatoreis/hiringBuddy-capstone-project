@@ -10,10 +10,10 @@ from typing import Optional, Dict, Any, List
 import boto3
 from botocore.config import Config
 
-# Defaults (override via env)
-DEFAULT_AWS_REGION = os.getenv("AWS_REGION", "eu-west-3")
-# Use Claude 3.5 by default (Haiku fast/cheap; swap to Sonnet if you have access)
-DEFAULT_CLAUDE = os.getenv("DEFAULT_CLAUDE", "eu.anthropic.claude-3-7-sonnet-20250219-v1:0")
+# Defaults (override via env)# Use Claude 3.5 by default (Haiku fast/cheap; swap to Sonnet if you have access)
+DEFAULT_AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+DEFAULT_CLAUDE = os.getenv("DEFAULT_CLAUDE", "us.anthropic.claude-3-7-sonnet-20250219-v1:0")
+
 DEFAULT_NOVA = os.getenv("DEFAULT_NOVA", "us.amazon.nova-pro-v1:0")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "amazon.titan-embed-text-v2:0")
 
@@ -27,9 +27,9 @@ def _client(region: Optional[str]) -> Any:
             "bedrock-runtime",
             region_name=region,
             config=Config(
-                retries={"max_attempts": 6, "mode": "standard"},
-                read_timeout=60,
-                connect_timeout=60,
+                retries={"max_attempts": 2, "mode": "standard"},
+                read_timeout=25,
+                connect_timeout=10,
             ),
         )
     return _clients[region]
