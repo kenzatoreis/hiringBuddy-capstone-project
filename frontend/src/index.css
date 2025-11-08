@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
+/* @layer base {
   body { @apply bg-gray-50 text-gray-900; }
 }
 
@@ -15,4 +15,37 @@
   .btn-green { @apply btn bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700; }
   .btn-ghost { @apply btn bg-white border border-brand-200 text-brand-700 hover:bg-brand-50; }
   .section-title { @apply text-lg font-semibold text-brand-700; }
+} */
+/* index.css or globals.css */
+
+@layer base {
+  :root {
+    --brand-50: #f5f3ff;
+    --brand-100: #ede9fe;
+    --brand-500: #8b5cf6; /* violet/brand accent */
+    --brand-600: #7c3aed;
+    --brand-700: #6d28d9;
+    --brand-800: #5b21b6;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white border border-gray-100 rounded-2xl shadow-md p-5;
+  }
+  .btn {
+    @apply px-4 py-2 rounded-xl font-semibold transition-all duration-150;
+  }
+  .btn-green {
+    @apply bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg;
+  }
+  .btn-ghost {
+    @apply border border-gray-300 hover:bg-gray-50 text-gray-700;
+  }
+  .input {
+    @apply w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand-500;
+  }
+  .textarea {
+    @apply w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand-500 resize-none;
+  }
 }

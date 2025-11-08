@@ -1,138 +1,332 @@
-# # auth.py
-# from datetime import datetime, timedelta
-# from typing import Annotated
-# import os
-# from fastapi import APIRouter, Depends, HTTPException, status
-# from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-# from jose import jwt, JWTError
-# from passlib.context import CryptContext
+# from fastapi import APIRouter, Depends, HTTPException
 # from pydantic import BaseModel, EmailStr
 # from sqlalchemy.orm import Session
-
-# from db import SessionLocal
-# from models import Users
-
-
-# # ---- settings (keep here for simplicity) ----
-# # Generate a strong secret with: openssl rand -hex 32
-# SECRET_KEY = os.getenv("SECRET_KEY", "dev_only_change_me_" + "0"*64)
-# ALGORITHM = "HS256"
-# ACCESS_TOKEN_EXPIRE_MINUTES = 60
-
-# pwd_ctx = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
-# oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/auth/token")
-
+# from db import get_db
+# from models import User, Role, Profile
+# from jose import jwt
+# from datetime import datetime, timedelta
+# import bcrypt
+# from datetime import datetime, date
+# from fastapi import Request
+# from jose import JWTError
 # router = APIRouter(prefix="/auth", tags=["auth"])
 
-# # ---- pydantic ----
-# class CreateUserRequest(BaseModel):
+# SECRET_KEY = "supersecret"
+# ALGORITHM = "HS256"
+
+# # -------------------- Schemas --------------------
+# class RegisterIn(BaseModel):
 #     email: EmailStr
 #     password: str
-#     name: str | None = None
-#     role: str | None = None  # allow seeding admin if you want
+#     username: str | None = None
+#     dob: str | None = None  # "YYYY-MM-DD"
+#     major: str | None = None
+#     minor: str | None = None
+#     specialization: str | None = None
 
-# class Token(BaseModel):
-#     access_token: str
-#     token_type: str = "bearer"
-
-# class UserRead(BaseModel):
-#     id: int
+# class LoginIn(BaseModel):
 #     email: EmailStr
-#     name: str | None = None
-#     role: str
+#     password: str
 
-# # ---- db dep (inline to avoid extra files) ----
-# def get_db():
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
+# # -------------------- Utils --------------------
+# def create_token(data: dict):
+#     to_encode = data.copy()
+#     to_encode["exp"] = datetime.utcnow() + timedelta(hours=2)
+#     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-# DB = Annotated[Session, Depends(get_db)]
+# # -------------------- Routes --------------------
+# @router.post("/register")
+# def register(body: RegisterIn, db: Session = Depends(get_db)):
+#     if db.query(User).filter(User.email == body.email).first():
+#         raise HTTPException(status_code=400, detail="Email already registered")
 
-# # ---- helpers ----
-# def normalize_email(e: str) -> str:
-#     return (e or "").strip().lower()
+#     hashed = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt()).decode()
 
-# def hash_password(plain: str) -> str:
-#     return pwd_ctx.hash(plain)
+#     # ensure role exists
+#     role = db.query(Role).filter_by(name="user").first()
+#     if not role:
+#         role = Role(name="user")
+#         db.add(role)
+#         db.commit()
+#         db.refresh(role)
 
-# def verify_password(plain: str, hashed: str) -> bool:
-#     return pwd_ctx.verify(plain, hashed)
+#     user = User(email=body.email, hashed_password=hashed, role_id=role.id)
+#     db.add(user)
+#     db.commit()
+#     db.refresh(user)
 
-# def create_access_token(sub: str, user_id: int, role: str) -> str:
-#     payload = {
-#         "sub": sub,
-#         "id": user_id,
-#         "role": role,
-#         "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-#     }
-#     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+#     # ✅ convert DOB string -> date
+#     dob_value = None
+#     if body.dob:
+#         try:
+#             dob_value = datetime.strptime(body.dob, "%Y-%m-%d").date()
+#         except ValueError:
+#             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-# def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]) -> dict:
+#     profile = Profile(
+#         user_id=user.id,
+#         username=body.username,
+#         dob=dob_value,
+#         major=body.major,
+#         minor=body.minor,
+#         specialization=body.specialization,
+#     )
+#     db.add(profile)
+#     db.commit()
+
+#     return {"message": "User created successfully", "user_id": user.id}
+
+
+# @router.post("/login")
+# def login(body: LoginIn, db: Session = Depends(get_db)):
+#     user = db.query(User).filter(User.email == body.email).first()
+#     if not user or not bcrypt.checkpw(body.password.encode(), user.hashed_password.encode()):
+#         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+#     token = create_token({
+#         "sub": user.email,
+#         "role": user.role_rel.name if user.role_rel else "user",
+#     })
+#     return {"access_token": token, "token_type": "bearer"}
+# @router.get("/me")
+# def get_me(request: Request, db: Session = Depends(get_db)):
+#     token = request.headers.get("authorization")
+#     if not token or not token.startswith("Bearer "):
+#         raise HTTPException(status_code=401, detail="Missing or invalid token")
+    
+#     token = token.split(" ")[1]
 #     try:
 #         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 #         email = payload.get("sub")
-#         uid = payload.get("id")
-#         role = payload.get("role")
-#         if not (email and uid and role):
-#             raise HTTPException(status_code=401, detail="Could not validate user")
-#         return {"email": email, "id": uid, "role": role}
-#     except JWTError:
-#         raise HTTPException(status_code=401, detail="Could not validate user")
+#         if not email:
+#             raise HTTPException(status_code=401, detail="Invalid token")
+#     except Exception:
+#         raise HTTPException(status_code=401, detail="Token verification failed")
 
-# def require_role(*allowed: str):
-#     def _inner(user: Annotated[dict, Depends(get_current_user)]):
-#         if user["role"] not in allowed:
-#             raise HTTPException(status_code=403, detail="Forbidden")
-#         return user
-#     return _inner
-
-# # Handy aliases for deps to avoid default-arg ordering problems
-# CurrentUser = Annotated[dict, Depends(get_current_user)]
-# AdminOnly = Annotated[dict, Depends(require_role("admin"))]
-
-# # ---- routes ----
-# @router.post("/", status_code=status.HTTP_201_CREATED)
-# def register(body: CreateUserRequest, db: DB):
-#     email = normalize_email(body.email)
-#     exists = db.query(Users.id).filter(Users.email == email).first()
-#     if exists:
-#         raise HTTPException(400, "Email already registered")
-#     role = body.role if body.role in {"user", "admin"} else "user"
-#     user = Users(
-#         email=email,
-#         name=body.name,
-#         hashed_password=hash_password(body.password),
-#         role=role,
-#     )
-#     db.add(user)
-#     db.commit()
-#     return {"ok": True}
-
-# @router.post("/token", response_model=Token)
-# def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DB):
-#     email = normalize_email(form.username)
-#     user = db.query(Users).filter(Users.email == email).first()
-#     if not user or not verify_password(form.password, user.hashed_password):
-#         raise HTTPException(status_code=401, detail="Invalid credentials")
-#     user.last_login_at = datetime.utcnow()
-#     db.commit()
-#     token = create_access_token(sub=user.email, user_id=user.id, role=user.role)
-#     return {"access_token": token, "token_type": "bearer"}
-
-# @router.get("/me", response_model=UserRead)
-# def me(current: CurrentUser, db: DB):
-#     user = db.query(Users).filter(Users.id == current["id"]).first()
+#     user = db.query(User).filter(User.email == email).first()
 #     if not user:
-#         raise HTTPException(404, "User not found")
-#     return UserRead(id=user.id, email=user.email, name=user.name, role=user.role)
+#         raise HTTPException(status_code=404, detail="User not found")
 
-# @router.get("/admin/ping")
-# def admin_ping(user: AdminOnly):
-#     return {"ok": True, "as": "admin", "user": user}
+#     profile = db.query(Profile).filter(Profile.user_id == user.id).first()
+#     if not profile:
+#         raise HTTPException(status_code=404, detail="Profile not found")
 
-# @router.get("/secure")
-# def secure_example(current: CurrentUser):
-#     return {"ok": True, "who": current}
+#     # ✅ Combine User + Profile info
+#     return {
+#         "email": user.email,
+#         "username": profile.username,
+#         "dob": profile.dob.isoformat() if profile.dob else None,
+#         "major": profile.major,
+#         "minor": profile.minor,
+#         "specialization": profile.specialization,
+#         "role": user.role_rel.name if user.role_rel else "user"
+#     }
+# @router.put("/update")
+# def update_profile(request: Request, db: Session = Depends(get_db)):
+#     token = request.headers.get("authorization")
+#     if not token or not token.startswith("Bearer "):
+#         raise HTTPException(status_code=401, detail="Missing or invalid token")
+#     token = token.split(" ")[1]
+
+#     try:
+#         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+#         email = payload.get("sub")
+#         if not email:
+#             raise HTTPException(status_code=401, detail="Invalid token")
+#     except Exception:
+#         raise HTTPException(status_code=401, detail="Token verification failed")
+
+#     user = db.query(User).filter(User.email == email).first()
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+
+#     profile = db.query(Profile).filter(Profile.user_id == user.id).first()
+#     if not profile:
+#         raise HTTPException(status_code=404, detail="Profile not found")
+
+#     data = request.json()
+#     for key, value in data.items():
+#         if hasattr(profile, key):
+#             setattr(profile, key, value)
+
+#     db.commit()
+#     db.refresh(profile)
+
+#     return {"message": "Profile updated", "profile": profile.id}
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, EmailStr
+from sqlalchemy.orm import Session
+from db import get_db
+from models import User, Role, Profile
+from jose import jwt, JWTError
+from datetime import datetime, timedelta
+import bcrypt
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+SECRET_KEY = "supersecret"
+ALGORITHM = "HS256"
+
+# -------------------- Schemas --------------------
+class RegisterIn(BaseModel):
+    email: EmailStr
+    password: str
+    username: str | None = None
+    dob: str | None = None  # "YYYY-MM-DD"
+    major: str | None = None
+    minor: str | None = None
+    specialization: str | None = None
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+# -----------------------
+def create_token(data: dict):
+    to_encode = data.copy()
+    to_encode["exp"] = datetime.utcnow() + timedelta(hours=2)
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def get_user_from_token(request: Request, db: Session):
+    """Helper to extract the user from Authorization header"""
+    auth_header = request.headers.get("authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token verification failed")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return user
+
+# -------------------- Routes --------------------
+@router.post("/register")
+def register(body: RegisterIn, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == body.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    hashed = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt()).decode()
+
+    # ensure role exists
+    role = db.query(Role).filter_by(name="user").first()
+    if not role:
+        role = Role(name="user")
+        db.add(role)
+        db.commit()
+        db.refresh(role)
+
+    user = User(email=body.email, hashed_password=hashed, role_id=role.id)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    dob_value = None
+    if body.dob:
+        try:
+            dob_value = datetime.strptime(body.dob, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+    profile = Profile(
+        user_id=user.id,
+        username=body.username,
+        dob=dob_value,
+        major=body.major,
+        minor=body.minor,
+        specialization=body.specialization,
+    )
+    db.add(profile)
+    db.commit()
+
+    return {"message": "User created successfully", "user_id": user.id}
+
+
+@router.post("/login")
+def login(body: LoginIn, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user or not bcrypt.checkpw(body.password.encode(), user.hashed_password.encode()):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = create_token({
+        "sub": user.email,
+        "role": user.role_rel.name if user.role_rel else "user",
+    })
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.get("/me")
+def get_me(request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_token(request, db)
+    profile = db.query(Profile).filter(Profile.user_id == user.id).first()
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    return {
+        "email": user.email,
+        "username": profile.username,
+        "dob": profile.dob.isoformat() if profile.dob else None,
+        "major": profile.major,
+        "minor": profile.minor,
+        "specialization": profile.specialization,
+        "role": user.role_rel.name if user.role_rel else "user"
+    }
+
+
+@router.put("/update")
+async def update_profile(request: Request, db: Session = Depends(get_db)):
+    token = request.headers.get("authorization")
+    if not token or not token.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = token.split(" ")[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token verification failed")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    profile = db.query(Profile).filter(Profile.user_id == user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # ✅ FIX: await the JSON body
+    data = await request.json()
+
+    for key, value in data.items():
+        if hasattr(profile, key):
+            setattr(profile, key, value)
+
+    db.commit()
+    db.refresh(profile)
+
+    return {"message": "Profile updated", "profile_id": profile.id}
+# in auth.py (anywhere after router is defined)
+@router.post("/seed_admin")
+def seed_admin(email: EmailStr, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    role = db.query(Role).filter_by(name="admin").first()
+    if not role:
+        role = Role(name="admin")
+        db.add(role); db.commit(); db.refresh(role)
+    user.role_id = role.id
+    db.commit()
+    return {"ok": True, "email": email, "role": "admin"}

@@ -22,3 +22,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Node/React/Vite (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/*.log
+
+# Python/FastAPI (backend)
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/
+backend/.env
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/*.log
+# IDEs
+.vscode/
+.idea/

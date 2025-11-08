@@ -1,7 +1,0 @@
-Requirements:
-Minimum 3 months’ experience with Java (Linux experience is a plus)
-Strong English communication skills (verbal and written)
-Solid knowledge of:
-Backend: Core Java, Spring Boot, Hibernate, REST APIs, gRPC, GraphQL
-Frontend: Angular/React/Vue, JavaScript/TypeScript, HTML5, CSS3
-Databases: Oracle, SQL Server, PostgreSQL, MySQL, MongoDB
