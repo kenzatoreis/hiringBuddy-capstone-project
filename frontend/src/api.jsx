@@ -1,89 +1,59 @@
-// import axios from "axios";
-
-// const API = "http://127.0.0.1:8000/auth";
-
-// export const registerUser = async (data) => {
-//   return axios.post(`${API}/register`, data);
-// };
-
-// export const loginUser = async (email, password) => {
-//   return axios.post(`${API}/login`, { email, password });
-// };
-// export async function getProfile() {
-//   const token = localStorage.getItem("token");
-//   return axios.get(`${API}/me`, {
-//     headers: { Authorization: `Bearer ${token}` },
-//   });
-// }
-// // Update current user profile
-// export async function updateProfile(body) {
-//   const token = localStorage.getItem("token");
-//   return axios.put(`${API}/update`, body, {
-//     headers: { Authorization: `Bearer ${token}` },
-//   });
-// }
 // api.jsx
 import axios from "axios";
 
-// Keep your existing auth base
 const AUTH = "http://127.0.0.1:8000/auth";
-// Add an admin base (same host, different prefix)
 const ADMIN = "http://127.0.0.1:8000/admin";
-const AI = "http://127.0.0.1:8000";
-// export const apiJson = (url, data) =>
-//   axios.post(url, data, { headers: { ...authHeader(), "Content-Type": "application/json" } });
+const AI    = "http://127.0.0.1:8000";
+const SUPPORT = "http://127.0.0.1:8000/support";
 
-// export const apiForm = (url, formData) =>
-//   axios.post(url, formData, { headers: { ...authHeader(), "Content-Type": "multipart/form-data" } });
-
-
-// Small helper so we don’t repeat header code
 const authHeader = () => {
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-// ---------- Auth ----------
-export const registerUser = async (data) => {
-  return axios.post(`${AUTH}/register`, data);
-};
+/* ---------- Auth ---------- */
+export const registerUser = (data) =>
+  axios.post(`${AUTH}/register`, data);
 
-export const loginUser = async (email, password) => {
-  return axios.post(`${AUTH}/login`, { email, password });
-};
+export const loginUser = (email, password) =>
+  axios.post(`${AUTH}/login`, { email, password });
 
-export async function getProfile() {
-  return axios.get(`${AUTH}/me`, { headers: authHeader() });
-}
+export const getProfile = () =>
+  axios.get(`${AUTH}/me`, { headers: authHeader() });
 
-export async function updateProfile(body) {
-  return axios.put(`${AUTH}/update`, body, { headers: authHeader() });
-}
+export const updateProfile = (body) =>
+  axios.put(`${AUTH}/update`, body, { headers: authHeader() });
 
-// (Dev only) seed first admin once, then remove/disable on prod
-export async function seedAdmin(email) {
-  return axios.post(`${AUTH}/seed_admin`, { email }, { headers: authHeader() });
-}
+// dev-only
+export const seedAdmin = (email) =>
+  axios.post(`${AUTH}/seed_admin`, { email }, { headers: authHeader() });
 
-// ---------- Admin (role = admin required) ----------
-export async function adminListUsers() {
-  return axios.get(`${ADMIN}/users`, { headers: authHeader() });
-}
+/* ---------- Admin (users) ---------- */
+export const adminListUsers = () =>
+  axios.get(`${ADMIN}/users`, { headers: authHeader() });
 
-export async function adminSetUserRole(userId, role /* "admin" | "user" */) {
-  return axios.patch(`${ADMIN}/users/${userId}/role`, { role }, { headers: authHeader() });
-}
+export const adminSetUserRole = (userId, role /* "admin" | "user" */) =>
+  axios.patch(`${ADMIN}/users/${userId}/role`, { role }, { headers: authHeader() });
 
-export async function adminDeleteUser(userId) {
-  return axios.delete(`${ADMIN}/users/${userId}`, { headers: authHeader() });
-}
+export const adminDeleteUser = (userId) =>
+  axios.delete(`${ADMIN}/users/${userId}`, { headers: authHeader() });
 
-const SUPPORT = "http://127.0.0.1:8000/support";
+/* ---------- Support (tickets) ---------- */
+// user create
+export const createComplaint = (payload) =>
+  axios.post(`${SUPPORT}/complaints`, payload, { headers: authHeader() });
+
+// admin list / set status / delete
 export const adminListComplaints = () =>
   axios.get(`${SUPPORT}/admin/complaints`, { headers: authHeader() });
+
 export const adminSetComplaintStatus = (id, status) =>
   axios.patch(`${SUPPORT}/admin/complaints/${id}/status`, { status }, { headers: authHeader() });
-// ---------- AI ----------
+
+export const adminDeleteComplaint = (id) =>
+  axios.delete(`${SUPPORT}/admin/complaints/${id}`, { headers: authHeader() });
+
+/* ---------- AI ---------- */
 export const peekDoc = (file) => {
   const form = new FormData();
   form.append("file", file);
@@ -99,17 +69,84 @@ export const indexResume = (file, name) => {
   });
 };
 
-export const matchResume = (jdText) =>
-  axios.post(`${AI}/ai/match_mem`, { requirement: jdText }, { headers: authHeader() });
+export const matchResume = (jdText,language = "en") =>
+  axios.post(`${AI}/ai/match_mem`, { requirement: jdText, language }, { headers: authHeader() });
 
-export const draftCVWithHeaders = (resumeText, jdText, missing, headers) =>
-  axios.post(
-    `${AI}/ai/draft_cv_with_headers`,
-    { resume_text: resumeText, job_description: jdText, missing, headers },
-    { headers: authHeader() }
-  );
+export const draftCVWithHeaders = (resumeText, jdText, missing, headers, language = "en") =>
+  axios.post(`${AI}/ai/draft_cv_with_headers`,
+    { resume_text: resumeText, job_description: jdText, missing, headers,language },
+    { headers: authHeader() });
 
 export const listResumes = () =>
   axios.get(`${AI}/ai/resumes`, { headers: authHeader() });
+
 export const deleteResume = (id) =>
   axios.delete(`${AI}/ai/resume/${id}`, { headers: authHeader() });
+
+export const getSuggestions = (resumeText, jdText, missing = [], language = "en") =>
+  axios.post(`${AI}/ai/suggestions_for_improvement`,
+    { resume_text: resumeText, job_description: jdText, missing, language },
+    { headers: authHeader() });
+
+export const getInterviewQuestions = (payload) =>
+  axios.post(`${AI}/ai/interviewer/questions`, payload, { headers: authHeader() });
+export const evaluateInterview = (payload) =>
+  axios.post(`${AI}/ai/interviewer/evaluate`, payload, { headers: authHeader() });
+
+/* ---------- Account ---------- */
+export const changePassword = (currentPassword, newPassword) =>
+  axios.put(`${AUTH}/change-password`,
+    { current_password: currentPassword, new_password: newPassword },
+    { headers: authHeader() });
+
+export const deleteAccount = () =>
+  axios.delete(`${AUTH}/delete-account`, { headers: authHeader() });
+// --- Job search  ---
+export const searchJobs = (targetRole, location = "Morocco", numResults = 10) =>
+  axios.post(
+    `${AI}/ai/job_search_serper`,
+    {
+      target_role: targetRole,
+      location,
+      num_results: numResults,
+    },
+    { headers: authHeader() }
+  );
+//--- history 
+export const getRecentMatches = (limit = 5) =>
+  axios.get(`${AI}/ai/match_history/recent`, {
+    params: { limit },
+    headers: authHeader(),
+  });
+
+export const getAllMatches = () =>
+  axios.get(`${AI}/ai/match_history`, {
+    headers: authHeader(),
+  });
+
+export const getMatchById = async (id) => {
+  return axios.get(`${AI}/ai/match_history/${id}`, { headers: authHeader() });
+};
+// ---------- Interview history ----------
+export const getAllInterviews = async () => {
+  return axios.get(`${AI}/ai/interview_history`, {
+    headers: { ...authHeader() },
+  });
+};
+
+export const getInterviewById = async (id) => {
+  return axios.get(`${AI}/ai/interview_history/${id}`, {
+    headers: { ...authHeader() },
+  });
+};
+// ---------- Password reset (not logged in) ----------
+export const requestPasswordReset = async (email) => {
+  return axios.post(`${AUTH}/forgot-password`, { email });
+};
+
+export const resetPassword = async (token, newPassword) => {
+  return axios.post(`${AUTH}/reset-password`, {
+    token,
+    new_password: newPassword,
+  });
+};

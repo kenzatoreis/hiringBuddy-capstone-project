@@ -1,0 +1,3 @@
+model,score,precision,recall,f1,tp,fp,fn,time,summary
+claude_plain,75,0.94,0.53,0.68,16,1,14,3.63,"The candidate has strong programming foundations with Java and JavaScript frameworks (React, Next.js, Vue.js), but lacks specific experience with several required backend technologies (Spring Boot, Hibernate, REST APIs), DevOps tools (Docker, Kubernetes, cloud platforms), and specialized databases mentioned in the job description."
+claude_titan,65,0.94,0.53,0.68,16,1,14,3.8,"The candidate has experience with Java, JavaScript, React, Vue.js, and PostgreSQL, along with Agile methodologies, but lacks many required backend frameworks, most databases, all DevOps tools, and specialized technologies like IBM ODM."

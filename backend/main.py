@@ -6,10 +6,14 @@ from admin import admin as admin_router
 from support import support as support_router
 from ai import router as ai_router
 from models import *
+from dotenv import load_dotenv
+import os
+
+load_dotenv() 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-# ---- ADD THIS PART ----
+
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",

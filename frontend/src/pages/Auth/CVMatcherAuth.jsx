@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, CheckCircle, AlertCircle, ArrowRight, ArrowLeft, Briefcase, Calendar, GraduationCap, BookOpen, Award } from 'lucide-react';
-import { registerUser, loginUser } from "../../api";
+import { registerUser, loginUser, requestPasswordReset } from "../../api";
+
 export default function CVMatcherAuth() {
-  const [view, setView] = useState('login'); // login, register, forgot
-  const [registerStep, setRegisterStep] = useState(1); // 1, 2, 3
+  const [view, setView] = useState('login'); t
+  const [registerStep, setRegisterStep] = useState(1); 
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -22,18 +23,21 @@ export default function CVMatcherAuth() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setMessage({ text: '', type: '' });
   };
-
   const handleSubmit = async () => {
   setLoading(true);
   setMessage({ text: "", type: "" });
+
   try {
     if (view === "login") {
+      // LOGIN
       const res = await loginUser(formData.email, formData.password);
       localStorage.setItem("token", res.data.access_token);
       console.log("TOKEN:", res.data.access_token);
       setMessage({ text: "Login successful!", type: "success" });
       setTimeout(() => (window.location.href = "/dashboard"), 1000);
+
     } else if (view === "register" && registerStep === 3) {
+      //FINAL REGISTER STEP
       const body = {
         email: formData.email,
         password: formData.password,
@@ -49,8 +53,22 @@ export default function CVMatcherAuth() {
         setView("login");
         setRegisterStep(1);
       }, 1500);
+
+    } else if (view === "forgot") {
+      //fRGOT PASSWORD
+      if (!formData.email) {
+        setMessage({ text: "Please enter your email.", type: "error" });
+      } else {
+        await requestPasswordReset(formData.email);
+        setMessage({
+          text: "A reset link has been sent.",
+          type: "success",
+        });
+      }
+
     } else {
-      setMessage({ text: "Password reset not implemented yet.", type: "info" });
+      // fallback (shouldn't happen)
+      setMessage({ text: "Unknown action.", type: "error" });
     }
   } catch (err) {
     const msg = err.response?.data?.detail || "Something went wrong.";
@@ -59,6 +77,44 @@ export default function CVMatcherAuth() {
     setLoading(false);
   }
 };
+
+
+//   const handleSubmit = async () => {
+//   setLoading(true);
+//   setMessage({ text: "", type: "" });
+//   try {
+//     if (view === "login") {
+//       const res = await loginUser(formData.email, formData.password);
+//       localStorage.setItem("token", res.data.access_token);
+//       console.log("TOKEN:", res.data.access_token);
+//       setMessage({ text: "Login successful!", type: "success" });
+//       setTimeout(() => (window.location.href = "/dashboard"), 1000);
+//     } else if (view === "register" && registerStep === 3) {
+//       const body = {
+//         email: formData.email,
+//         password: formData.password,
+//         username: formData.username,
+//         dob: formData.dateOfBirth,
+//         major: formData.major,
+//         minor: formData.minor,
+//         specialization: formData.specialization,
+//       };
+//       await registerUser(body);
+//       setMessage({ text: "Account created! Please login.", type: "success" });
+//       setTimeout(() => {
+//         setView("login");
+//         setRegisterStep(1);
+//       }, 1500);
+//     } else {
+//       setMessage({ text: "Password reset not implemented yet.", type: "info" });
+//     }
+//   } catch (err) {
+//     const msg = err.response?.data?.detail || "Something went wrong.";
+//     setMessage({ text: msg, type: "error" });
+//   } finally {
+//     setLoading(false);
+//   }
+// };
 // Go to next registration step
 const handleNextStep = () => {
   if (registerStep === 1 && (!formData.email || !formData.password || !formData.confirmPassword)) {
@@ -114,14 +170,14 @@ const handlePreviousStep = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          {/* Left Side - Branding */}
+          {/* Left Side */}
           <div className="hidden lg:block">
             <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl shadow-2xl p-12 text-white">
               <div className="flex items-center gap-3 mb-8">
-                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center">
+                {/* <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center">
                   <Briefcase className="w-8 h-8 text-green-600" />
-                </div>
-                <h1 className="text-4xl font-bold">CV Matcher</h1>
+                </div> */}
+                <h1 className="text-4xl font-bold">HiringBuddy</h1>
               </div>
               
               <h2 className="text-3xl font-bold mb-6">
@@ -164,16 +220,11 @@ const handlePreviousStep = () => {
                 </div>
               </div>
 
-              <div className="mt-12 p-6 bg-white bg-opacity-10 rounded-2xl backdrop-blur">
-                <p className="text-sm text-green-50">
-                  "This tool helped me land my dream job by showing exactly what skills I needed to highlight!"
-                </p>
-                <p className="text-sm font-semibold mt-2">- Sarah Johnson</p>
-              </div>
+            
             </div>
           </div>
 
-          {/* Right Side - Auth Form */}
+          {/*Auth Form */}
           <div className="w-full">
             <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12">
               {/* Header */}
@@ -183,7 +234,7 @@ const handlePreviousStep = () => {
                     <Lock className="w-10 h-10 text-purple-600" />
                   </div>
                   <h2 className="text-4xl font-bold text-gray-800 mb-2">
-                    {view === 'login' && 'Welcome Back'}
+                    {view === 'login' && 'Login'}
                     {view === 'forgot' && 'Reset Password'}
                   </h2>
                   <p className="text-gray-600 text-lg">

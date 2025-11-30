@@ -1,4 +1,3 @@
-# admin.py
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer 
 from sqlalchemy.orm import Session
@@ -10,7 +9,7 @@ admin = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(bearer)
 
 def require_admin(
     request: Request,
-    db: Session = Depends(get_db),   # ✅ must be Depends
+    db: Session = Depends(get_db),   
 ):
     me = get_user_from_token(request, db)
     role_name = me.role_rel.name if getattr(me, "role_rel", None) else "user"
@@ -20,8 +19,8 @@ def require_admin(
 
 @admin.get("/users")
 def list_users(
-    _: User = Depends(require_admin),           # ✅ dependency
-    db: Session = Depends(get_db),              # ✅ dependency
+    _: User = Depends(require_admin),           # dependency
+    db: Session = Depends(get_db),              
 ):
     rows = (
         db.query(User, Profile, Role)
@@ -48,8 +47,8 @@ def list_users(
 def set_user_role(
     user_id: int,
     role: str,
-    _: User = Depends(require_admin),           # ✅ dependency
-    db: Session = Depends(get_db),              # ✅ dependency
+    _: User = Depends(require_admin),           
+    db: Session = Depends(get_db),              
 ):
     role_obj = db.query(Role).filter_by(name=role).first()
     if not role_obj:
@@ -67,8 +66,8 @@ def set_user_role(
 @admin.delete("/users/{user_id}")
 def delete_user(
     user_id: int,
-    _: User = Depends(require_admin),           # ✅ dependency
-    db: Session = Depends(get_db),              # ✅ dependency
+    _: User = Depends(require_admin),          
+    db: Session = Depends(get_db),              
 ):
     u = db.query(User).filter(User.id == user_id).first()
     if not u:

@@ -1,7 +1,4 @@
-# bedrock_client.py
-# -------------------------------------------
-# Bedrock helpers: Anthropic (converse) + Nova (messages-v1) + Titan v2 embeddings
-# -------------------------------------------
+
 
 import json
 import os
@@ -10,7 +7,6 @@ from typing import Optional, Dict, Any, List
 import boto3
 from botocore.config import Config
 
-# Defaults (override via env)# Use Claude 3.5 by default (Haiku fast/cheap; swap to Sonnet if you have access)
 DEFAULT_AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 DEFAULT_CLAUDE = os.getenv("DEFAULT_CLAUDE", "us.anthropic.claude-3-7-sonnet-20250219-v1:0")
 

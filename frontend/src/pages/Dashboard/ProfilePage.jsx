@@ -10,7 +10,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  // 🔹 Fetch profile data on mount
+  // fetch profile
   useEffect(() => {
     getProfile()
       .then((res) => {
@@ -22,7 +22,7 @@ export default function ProfilePage() {
           major: data.major || "",
           minor: data.minor || "",
           specialization: data.specialization || "",
-          bio: data.bio || "Passionate learner — update your bio soon!",
+          bio: data.bio || "Passionate learner - update your bio soon!",
         };
         setProfileData(mapped);
         setTempData(mapped);
@@ -38,16 +38,25 @@ export default function ProfilePage() {
     setTempData({ ...tempData, [e.target.name]: e.target.value });
 
   const handleSave = async () => {
-    try {
-      const res = await updateProfile(tempData);
-      setProfileData({ ...tempData });
-      setEditing(false);
-      setMessage("✅ Profile updated successfully!");
-    } catch (err) {
-      console.error("❌ Update failed:", err);
-      setMessage("Error updating profile.");
-    }
-  };
+  try {
+    const payload = {
+      username: tempData.username,
+      dob: tempData.dateOfBirth || null, 
+      major: tempData.major,
+      minor: tempData.minor,
+      specialization: tempData.specialization,
+      
+    };
+
+    await updateProfile(payload);
+    setProfileData({ ...tempData });
+    setEditing(false);
+    setMessage("Profile updated successfully!");
+  } catch (err) {
+    console.error("❌ Update failed:", err);
+    setMessage("Error updating profile.");
+  }
+};
 
   const handleCancel = () => {
     setTempData(profileData);
@@ -91,7 +100,7 @@ export default function ProfilePage() {
       {message && (
         <div
           className={`p-4 rounded-xl text-center font-semibold ${
-            message.startsWith("✅")
+            message.startsWith("Profile")
               ? "bg-green-100 text-green-700"
               : "bg-red-100 text-red-700"
           }`}

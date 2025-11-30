@@ -33,7 +33,6 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 Base = declarative_base()
 
-# <-- add this
 def get_db():
     db = SessionLocal()
     try:

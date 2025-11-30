@@ -1,5 +1,5 @@
 // src/components/Results.jsx
-export default function Results({ data }) {
+export default function Results({ data, showScore = true }) {
   if (!data?.length) return <p className="text-gray-500">No results yet.</p>;
 
   return (
@@ -19,9 +19,11 @@ export default function Results({ data }) {
           <div key={i} className="card bg-brand-50/40 border-brand-100">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-brand-800">{r.candidate}</h3>
-              <span className="inline-flex items-center px-2 py-1 rounded-lg bg-brand-500 text-white text-xs">
-                Score: {parsed.score}
-              </span>
+                            {showScore && (
+                <span className="inline-flex items-center px-2 py-1 rounded-lg bg-brand-500 text-white text-xs">
+                  Score: {parsed.score}
+                </span>
+              )}
             </div>
 
             <div className="grid md:grid-cols-2 gap-4 mt-3">

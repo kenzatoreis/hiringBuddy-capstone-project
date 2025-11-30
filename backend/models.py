@@ -49,7 +49,7 @@ class Complaint(Base):
 
     user = relationship("User", lazy="joined")
 
-# ✅ Store the whole resume file
+# whole resume file
 class Resume(Base):
     __tablename__ = "resumes"
 
@@ -64,7 +64,7 @@ class Resume(Base):
     chunks = relationship("ResumeChunk", cascade="all, delete", back_populates="resume")
 
 
-# ✅ Store individual text chunks + Titan embeddings
+# individual text chunks + Titan embeddings
 class ResumeChunk(Base):
     __tablename__ = "resume_chunks"
 
@@ -75,3 +75,43 @@ class ResumeChunk(Base):
     score = Column(Float, default=0.0)
 
     resume = relationship("Resume", back_populates="chunks")
+
+class MatchAttempt(Base):
+    __tablename__ = "match_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    resume_id = Column(Integer, ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True)
+
+    job_title = Column(String(255), nullable=True)   
+    score = Column(Integer, nullable=True)           
+    jd_snippet = Column(Text, nullable=True)          
+    raw_json = Column(Text, nullable=True)           
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", backref="match_attempts")
+    resume = relationship("Resume")
+
+class InterviewAttempt(Base):
+    __tablename__ = "interview_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # short JD title / role 
+    job_title = Column(String(255), nullable=True)
+
+    # JD snippet for context, like MatchAttempt
+    jd_snippet = Column(Text, nullable=True)
+
+    # final 0–100 score from interviewer_evaluate
+    final_score = Column(Integer, nullable=True)
+
+    # full evaluation blob: { per_question: [...], final: {...} }
+    eval_json = Column(JSON, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # SAME LOGIC AS MatchAttempt: backref creates User.interview_attempts
+    user = relationship("User", backref="interview_attempts")

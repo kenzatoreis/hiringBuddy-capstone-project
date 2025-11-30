@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Body, Path
 from sqlalchemy.orm import Session
 from db import get_db
 from models import Complaint, User
-from auth import get_user_from_token   # you already use this
-from admin import require_admin        # your admin guard
+from auth import get_user_from_token   
+from admin import require_admin        
 
 support = APIRouter(prefix="/support", tags=["support"])
 
@@ -15,7 +15,7 @@ def create_complaint(
     payload: dict = Body(...),   # { name, email, subject, category, message }
     db: Session = Depends(get_db),
 ):
-    # attach logged-in user if present (your form *also* sends name/email)
+    # attach logged-in user 
     me: User | None = None
     try:
         me = get_user_from_token(request, db)
@@ -57,13 +57,24 @@ def list_complaints(
 @support.patch("/admin/complaints/{cid}/status")
 def set_complaint_status(
     cid: int = Path(..., ge=1),
-    body: dict = Body(...),  # { "status": "resolved" }
+    body: dict = Body(...),  
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    c = db.query(Complaint).get(cid)
+    c = db.get(Complaint, cid)
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
     c.status = body.get("status", "open")
     db.commit()
+    return {"ok": True}
+@support.delete("/admin/complaints/{cid}")
+def delete_complaint(
+    cid: int = Path(..., ge=1),
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    c = db.get(Complaint, cid)
+    if not c:
+        raise HTTPException(status_code=404, detail="Not found")
+    db.delete(c); db.commit()
     return {"ok": True}

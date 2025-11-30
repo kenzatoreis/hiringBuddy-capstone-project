@@ -91,8 +91,10 @@ import CVMatcherAuth from "./pages/Auth/CVMatcherAuth";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import AdminUsers from "./pages/Admin/AdminUsers";
 import { getRoleFromToken } from "./utils/authroles";
-import AIWorkspace from "./pages/AIWorkspace";   // 👈 new import
-
+import MatchesPage from "./pages/Dashboard/MatchesPage";
+import AIWorkspace from "./pages/AIWorkspace";   
+import MatchDetailsPage from "./pages/Dashboard/MatchDetailsPage";
+import InterviewDetailsPage from "./pages/Dashboard/InterviewDetailsPage";
 function Home() {
   const token = localStorage.getItem("token");
   return (
@@ -123,9 +125,11 @@ export default function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* 👇 New AI workspace route */}
+        <Route path="matches" element={<MatchesPage />} />
         <Route path="/ai" element={<AIWorkspace />} />
-
+        <Route path="/matches" element={<MatchesPage />} />
+        <Route path="matches/:id" element={<MatchDetailsPage />} />
+        <Route path="/interviews/:id" element={<InterviewDetailsPage />} />
         {/* Admin area */}
         <Route
           path="/admin"
@@ -147,3 +151,13 @@ export default function App() {
    
   );
 }
+export const searchJobs = (targetRole, location = "Morocco", numResults = 10) =>
+  axios.post(
+    `${AI}/ai/job_search_serper`,
+    {
+      target_role: targetRole,
+      location,
+      num_results: numResults,
+    },
+    { headers: authHeader() }
+  );

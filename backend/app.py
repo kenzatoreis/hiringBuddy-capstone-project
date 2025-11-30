@@ -5,7 +5,7 @@ from ai import router as ai_router
 
 app = FastAPI(title="HiringBuddy – AI Only")
 
-# Allow frontend (React dev server)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -17,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register only AI routes (no auth, no DB)
+
 app.include_router(ai_router)
 
 @app.get("/")

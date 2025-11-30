@@ -1,56 +1,7 @@
-// import React from "react";
-// import { HelpCircle, Mail, FileText } from "lucide-react";
-
-// export default function HelpPage() {
-//   const faqs = [
-//     { q: "How do I upload my CV?", a: "Click on the Upload CV button on the home page and select your file." },
-//     { q: "What file formats are supported?", a: "We support PDF, DOC, and DOCX formats up to 10MB." },
-//     { q: "How is the match score calculated?", a: "Our AI analyzes your CV using NLP and semantic embeddings." },
-//   ];
-
-//   return (
-//     <div className="space-y-8">
-//       <h1 className="text-4xl font-bold text-gray-800">Help Center</h1>
-
-//       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
-//           <HelpCircle className="w-12 h-12 mb-4" />
-//           <h3 className="text-2xl font-bold mb-2">FAQs</h3>
-//           <p className="text-blue-100 mb-4">Find answers to common questions</p>
-//           <button className="bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:shadow-lg transition">
-//             Browse FAQs
-//           </button>
-//         </div>
-
-//         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
-//           <Mail className="w-12 h-12 mb-4" />
-//           <h3 className="text-2xl font-bold mb-2">Contact Support</h3>
-//           <p className="text-purple-100 mb-4">Get help from our team</p>
-//           <button className="bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:shadow-lg transition">
-//             Contact Us
-//           </button>
-//         </div>
-//       </div>
-
-//       <div className="bg-white rounded-2xl shadow-xl p-8">
-//         <h2 className="text-2xl font-bold text-gray-800 mb-6">Common Questions</h2>
-//         <div className="space-y-4">
-//           {faqs.map((item, idx) => (
-//             <div key={idx} className="p-4 bg-gray-50 rounded-xl">
-//               <h3 className="font-semibold text-gray-800 mb-2">{item.q}</h3>
-//               <p className="text-gray-600">{item.a}</p>
-//             </div>
-//           ))}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-// HelpPage.jsx
 import React, { useState } from "react";
 import axios from "axios";
 import { Mail, MessageSquare, CheckCircle, AlertCircle } from "lucide-react";
-
+import { createComplaint } from "../../api";
 export default function HelpPage() {
   const faqs = [
     { q: "How do I upload my CV?", a: "Click on the Upload CV button on the home page and select your file." },
@@ -78,11 +29,12 @@ export default function HelpPage() {
     }
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      await axios.post("http://127.0.0.1:8000/support/complaints",
-        { name, email, subject, category, message },
-        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-      );
+      // const token = localStorage.getItem("token");
+      // await axios.post("http://127.0.0.1:8000/support/complaints",
+      //   { name, email, subject, category, message },
+      //   { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      // );
+       await createComplaint({ name, email, subject, category, message });
       setNotice({ text: "Message sent! We’ll get back to you within 24 hours.", type: "success" });
       setForm({ name: "", email: "", subject: "", category: "general", message: "" });
     } catch {
@@ -183,7 +135,7 @@ export default function HelpPage() {
                           className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-400 resize-none" />
               </div>
 
-              <button disabled={loading}
+              <button type="submit" disabled={loading}
                       className="w-full bg-gradient-to-r from-purple-500 to-blue-600 text-white py-4 rounded-xl text-lg font-bold hover:shadow-2xl disabled:opacity-50">
                 {loading ? "Sending..." : "Send Message"}
               </button>

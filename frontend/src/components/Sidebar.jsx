@@ -8,7 +8,7 @@ export default function Sidebar({ currentPage, setCurrentPage }) {
         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
           <FileText className="w-6 h-6 text-green-600" />
         </div>
-        <h1 className="text-2xl font-bold">CV Matcher</h1>
+        <h1 className="text-2xl font-bold">HiringBuddy</h1>
       </div>
 
       <nav className="flex-1 py-6">
