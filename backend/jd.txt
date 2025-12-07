@@ -1,5 +1,5 @@
+company: capgemini
 Requirements:
-
     Minimum 3 months’ experience with Java (Linux experience is a plus)
     Strong English communication skills (verbal and written)
     Solid knowledge of:

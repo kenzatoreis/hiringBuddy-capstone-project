@@ -6,13 +6,14 @@ import DraftViewer from "../components/DraftViewer";
 import Interviewer from "../components/Interviewer";
 import FileUpload from "../components/FileUpload";
 import JobSearch from "../components/JobSearch";
+import { extractKeywords } from "../api";
 
 import {
   draftCVWithHeaders,
   getProfile,
   peekDoc,
   indexResume,
-  matchResume,
+  matchResume, 
 } from "../api";
 import {
   ChevronRight,
@@ -36,12 +37,46 @@ export default function AIWorkspace() {
   const [resumeText, setResumeText] = useState("");
   const [jdText, setJdText] = useState("");
   const [missing, setMissing] = useState([]);
+  const [jdKeywords, setJdKeywords] = useState([]);
+  const [keywordStatus, setKeywordStatus] = useState([]);
+  const normalizeText = (txt) =>
+  (txt || "")
+    .replace(/\s+/g, " ")             // collapse weird Word spacing (fix for "J a v a")
+    .replace(/[^\w+.,/# ]/g, " ")      // remove invisible formatting characters
+    .toLowerCase()
+    .trim();
+
+const normalizeKeyword = (txt) =>
+  (txt || "")
+    .replace(/[^a-zA-Z0-9+]/g, "")     // remove weird chars ("Re ac t" becomes "react")
+    .toLowerCase()
+    .trim();
 
   useEffect(() => {
     getProfile().catch((err) => {
       console.error("getProfile error:", err?.response?.data || err.message);
     });
   }, []);
+  // bubbles
+useEffect(() => {
+  if (!jdKeywords.length || !resumeText) {
+    setKeywordStatus([]);
+    return;
+  }
+
+  const cleanResume = normalizeText(resumeText);
+  const normalizedResume = normalizeKeyword(cleanResume);
+
+  const status = jdKeywords.map((k) => {
+    const keyNorm = normalizeKeyword(k);
+    return {
+      name: k,
+      exists: normalizedResume.includes(keyNorm),
+    };
+  });
+
+  setKeywordStatus(status);
+}, [jdKeywords, resumeText]);
 
   const cvOk = !!resumeText?.trim();
   const jdOk = !!jdText?.trim();
@@ -74,6 +109,7 @@ export default function AIWorkspace() {
         console.error("Could not parse results", err);
       }
     }
+    
     setView("results");
   };
 
@@ -86,14 +122,19 @@ export default function AIWorkspace() {
     setLoading(true);
     try {
       const peek = await peekDoc(file);
-      setResumeText(peek.data.head);
+      setResumeText(peek.data.full || peek.data.head);
+
 
       await indexResume(file, "Placeholder");
 
       setJdText(jd);
 
       const res = await matchResume(jd, language);
-      handleResults(res.data.results); // this sets results + view="results"
+      handleResults(res.data.results);
+      // literal keywotd extraction
+      const kw = await extractKeywords(jd);
+      setJdKeywords(kw.data.keywords || []);
+    // this sets results + view="results"
     } catch (err) {
       console.error(err);
       alert("Error comparing resume and JD.");
@@ -203,6 +244,36 @@ export default function AIWorkspace() {
       <div className="card p-4">
         <Results data={results} showScore={false} />
       </div>
+      {/* ----- ATS Literal Keyword Extraction Card ----- */}
+      {jdKeywords.length > 0 && keywordStatus.length > 0 && (
+        <div className="card p-4 mt-4">
+          <h2 className="text-xl font-bold text-gray-800 mb-3">ATS Keyword Match</h2>
+
+          <div className="flex flex-wrap gap-2">
+            {keywordStatus.map((k, idx) => (
+              <span
+                key={idx}
+                className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  k.exists
+                    ? "bg-green-100 text-green-700 border border-green-300"
+                    : "bg-red-100 text-red-700 border border-red-300"
+                }`}
+              >
+                {k.name}
+              </span>
+            ))}
+          </div>
+
+          <p className="text-sm mt-3">
+          <span className="font-semibold text-green-600">Green</span>
+          <span className="text-gray-600"> = your resume explicitly contains the keyword.</span>
+          <br />
+          <span className="font-semibold text-red-600">Red</span>
+          <span className="text-gray-600"> = missing (semantic evaluation may still detect equivalents).</span>
+        </p>
+
+        </div>
+      )}
 
       {/* Suggestions */}
       {cvOk && jdOk ? (

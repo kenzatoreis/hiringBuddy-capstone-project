@@ -28,7 +28,7 @@ export default function ProfilePage() {
         setTempData(mapped);
       })
       .catch((err) => {
-        console.error("❌ Failed to load profile:", err);
+        console.error("Failed to load profile:", err);
         setMessage("Could not load profile.");
       })
       .finally(() => setLoading(false));
@@ -53,7 +53,7 @@ export default function ProfilePage() {
     setEditing(false);
     setMessage("Profile updated successfully!");
   } catch (err) {
-    console.error("❌ Update failed:", err);
+    console.error("Update failed:", err);
     setMessage("Error updating profile.");
   }
 };

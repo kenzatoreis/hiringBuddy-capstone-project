@@ -3,8 +3,8 @@ import { Mail, Lock, User, Eye, EyeOff, CheckCircle, AlertCircle, ArrowRight, Ar
 import { registerUser, loginUser, requestPasswordReset } from "../../api";
 
 export default function CVMatcherAuth() {
-  const [view, setView] = useState('login'); t
-  const [registerStep, setRegisterStep] = useState(1); 
+  const [view, setView] = useState('login'); 
+  const [registerStep, setRegisterStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -16,8 +16,19 @@ export default function CVMatcherAuth() {
     minor: '',
     specialization: ''
   });
+
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [passwordMessage, setPasswordMessage] = useState(""); 
   const [loading, setLoading] = useState(false);
+  const passwordErrors = (pwd) => {
+    const errors = [];
+    if (pwd.length < 8) errors.push("At least 8 characters");
+    if (!/[a-z]/.test(pwd)) errors.push("One lowercase letter");
+    if (!/[A-Z]/.test(pwd)) errors.push("One uppercase letter");
+    if (!/[0-9]/.test(pwd)) errors.push("One number");
+    if (!/[!@#$%^&*()_+\-=]/.test(pwd)) errors.push("One special character");
+    return errors;
+  };
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -124,6 +135,16 @@ const handleNextStep = () => {
   if (registerStep === 1 && formData.password !== formData.confirmPassword) {
     setMessage({ text: 'Passwords do not match', type: 'error' });
     return;
+  }
+  if (registerStep === 1) {
+    const errors = passwordErrors(formData.password);
+    if (errors.length > 0) {
+      setMessage({
+        text: "Password must include: " + errors.join(", "),
+        type: "error"
+      });
+      return;
+    }
   }
   if (registerStep === 2 && (!formData.username || !formData.dateOfBirth)) {
     setMessage({ text: 'Please fill in all required fields', type: 'error' });

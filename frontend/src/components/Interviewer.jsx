@@ -148,6 +148,14 @@ const handleEvaluate = async () => {
       >
         {loadingQs ? "Generating…" : "Generate Questions"}
       </Btn>
+      <Btn
+        type="button"
+        onClick={generate}
+        disabled={loadingQs}
+        className="bg-green-600 hover:bg-green-700 text-white"
+      >
+        Refresh Questions
+      </Btn>
 
 
       {/* Questions + answer textareas */}

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import bcrypt
 from fastapi import BackgroundTasks
 import os, smtplib
+import re
 from email.message import EmailMessage
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -67,7 +68,18 @@ def get_user_from_token(request: Request, db: Session):
     return user
 RESET_TOKEN_EXPIRE_MINUTES = 30
 FRONTEND_RESET_URL = "http://localhost:5173/reset-password" 
-
+def validate_password(pwd: str):
+    if len(pwd) < 8:
+        return "Password must be at least 8 characters long."
+    if not re.search(r"[a-z]", pwd):
+        return "Password must contain at least one lowercase letter."
+    if not re.search(r"[A-Z]", pwd):
+        return "Password must contain at least one uppercase letter."
+    if not re.search(r"[0-9]", pwd):
+        return "Password must contain at least one number."
+    if not re.search(r"[!@#$%^&*()_+\-=]", pwd):
+        return "Password must contain at least one special character."
+    return None
 def create_reset_token(email: str) -> str:
     """
     Create a short-lived JWT only for password reset.
@@ -124,7 +136,10 @@ def send_reset_email(to_email: str, reset_link: str):
 def register(body: RegisterIn, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-
+    #password strength
+    err = validate_password(body.password)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
     hashed = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt()).decode()
 
     # ensure role exists
@@ -225,8 +240,13 @@ def change_password(
     if not bcrypt.checkpw(body.current_password.encode(), user.hashed_password.encode()):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
-    # hash and save new password
+    # validate new password
+    err = validate_password(body.new_password)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+
     new_hashed = bcrypt.hashpw(body.new_password.encode(), bcrypt.gensalt()).decode()
+
     user.hashed_password = new_hashed
     db.add(user)
     db.commit()

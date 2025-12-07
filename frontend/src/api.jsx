@@ -150,3 +150,9 @@ export const resetPassword = async (token, newPassword) => {
     new_password: newPassword,
   });
 };
+//ats
+export const extractKeywords = async (text) => {
+  return axios.post(`${AI}/ai/extract_keywords`, { text }, {
+    headers: authHeader(),
+  });
+};

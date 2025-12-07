@@ -23,6 +23,8 @@ import os
 import httpx
 import pdfplumber
 from dotenv import load_dotenv
+from pydantic import BaseModel
+import random
 router = APIRouter(prefix="/ai", tags=["ai"])
 load_dotenv()  
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
@@ -117,9 +119,7 @@ def _extract_text_from_pdf_bytes(b: bytes) -> str:
     # reader = PdfReader(io.BytesIO(b)) 
     # return "\n".join((p.extract_text() or "") for p in reader.pages)
     """
-    Try pdfplumber first for cleaner PDF text (better layout),
-    and fall back to PyPDF2 if anything goes wrong or if the
-    extracted text is basically empty.
+    try pdfplumber first 
     """
     # --- pdfplumber <3<3
     try:
@@ -180,7 +180,7 @@ async def peek_doc(file: UploadFile = File(...), limit: int = 1200):
     text = _extract_text(file, raw)
     if not text.strip():
         raise HTTPException(400, "No readable text.")
-    return {"chars": len(text), "head": text[:max(100, min(limit, 4000))]}
+    return {"chars": len(text), "head": text[:max(100, min(limit, 4000))], "full": text}
 
 # ---------------- /index_resume_mem ----------------
 @router.post("/index_resume_mem")
@@ -232,7 +232,7 @@ async def index_resume_mem(
 
 # ---------------- Helper: Retrieve top snippets ----------------
 def best_snippets_from_db(requirement: str, db, user, region=DEFAULT_AWS_REGION,
-                          top_k_resumes=2, top_k_snippets=1):
+                          top_k_resumes=2, top_k_snippets=3):
     qv = embed_text(requirement, aws_region=region)
     keywords = [w for w in re.findall(r"\w+", requirement.lower()) if len(w) > 2]
     scored = []
@@ -264,6 +264,19 @@ def best_snippets_from_db(requirement: str, db, user, region=DEFAULT_AWS_REGION,
         chunk_scores.sort(reverse=True, key=lambda t: t[0])
         best = chunk_scores[0][0]
         top = [t[1] for t in chunk_scores[:top_k_snippets]]
+        # --- append Sills + Experience blocks k---
+        full_text = resume.text or ""
+
+        skills_block = _extract_section_block(full_text, ["SKILLS", "TECHNICAL SKILLS"])
+        experience_block = _extract_section_block(full_text, ["EXPERIENCE", "PROFESSIONAL EXPERIENCE"])
+
+        # If found, append them to snippets shown to Claude
+        if skills_block:
+            top.append(skills_block)
+
+        if experience_block:
+            top.append(experience_block)
+
         print(f"[{resume.name}] best semantic score = {best:.3f}")
         scored.append((best, resume, top))
 
@@ -393,6 +406,56 @@ Top evidence excerpts (from the candidate):
         db.commit()
 
     return {"results": results}
+#----ats system----
+class ExtractRequest(BaseModel):
+    text: str
+
+def clean_json_generic(s: str):
+    s = s.strip()
+    s = s.replace("```json", "").replace("```", "")
+    return s
+#---ats
+@router.post("/extract_keywords")
+def extract_keywords(body: ExtractRequest):
+    """
+    Pure keyword extraction — NOT semantic, NOT CS-specific.
+    Extracts concrete requirement tokens from ANY job description.
+    """
+
+    prompt = f"""
+Extract the DISTINCT keywords from this job description.
+RULES:
+- Include tools, methods, certifications, frameworks, techniques,
+  software names, domain-specific terms, methodologies,
+  hard skills, platforms, and technical nouns.
+- Keep meaningful 1–3 word phrases.
+- NO soft skills (communication, teamwork, leadership, etc.)
+- Output ONLY a JSON array of strings.
+Text:
+{body.text}
+"""
+
+    out = safe_invoke_chat(
+        messages=[{"role": "user", "content": [{"text": prompt}]}],
+        system=[{"text": "Return ONLY a JSON array. No prose. No explanations."}],
+        model_id=DEFAULT_CLAUDE,
+        aws_region=DEFAULT_AWS_REGION,
+        temperature=0.0,
+        max_tokens=200,
+    )
+
+    cleaned = clean_json_generic(out)
+
+    try:
+        arr = json.loads(cleaned)
+        if isinstance(arr, list):
+            return {"keywords": arr}
+    except:
+        pass
+
+    return {"keywords": []}
+
+
 #-----suggest-----
 @router.post("/suggestions_for_improvement")
 def suggestions_for_improvement(
@@ -1218,7 +1281,7 @@ def interviewer_questions(
     intro = [
         f"Present yourself. Mention your major{'' if not mn_raw else ' and minor'}, and highlight your AUI experience.",
         "What experience do you have that matches the requirements stated in the offer?",
-        "What did you find interesting about this job offer?",
+        "What did you find interesting about this job offer?", "What is one project or experience you are proud of, and how does it relate to this role?",
     ]
 
     recognized = prog["options"]
@@ -1292,29 +1355,40 @@ Job Description (JD):
     tech_qs = [q for q in technical if q][:5]   # 5tech
     beh_qs = [q for q in behavioral if q][:3]   #3 behavioral qts
     questions: List[Dict[str, str]] = []
+    # ---------- PICK 2 RANDOM INTRO QUESTIONa----------
+    random.shuffle(intro)
+    selected_intros = intro[:2]
 
-    # 1) Present yourself
-    questions.append({
-        "id": "intro1",
-        "category": "intro",
-        "text": intro[0],
-    })
-
-    # 2) What experience matches the offer
-    if len(intro) > 1:
+    for idx, q in enumerate(selected_intros):
         questions.append({
-            "id": "intro2",
+            "id": f"intro{idx+1}",
             "category": "intro",
-            "text": intro[1],
+            "text": q,
         })
 
-    # 3) What did you find interesting about the offer (optional third intro)
-    if len(intro) > 2:
-        questions.append({
-            "id": "intro3",
-            "category": "intro",
-            "text": intro[2],
-        })
+
+    # # 1) Present yourself
+    # questions.append({
+    #     "id": "intro1",
+    #     "category": "intro",
+    #     "text": intro[0],
+    # })
+
+    # # 2) What experience matches the offer
+    # if len(intro) > 1:
+    #     questions.append({
+    #         "id": "intro2",
+    #         "category": "intro",
+    #         "text": intro[1],
+    #     })
+
+    # # 3) What did you find interesting about the offer (optional third intro)
+    # if len(intro) > 2:
+    #     questions.append({
+    #         "id": "intro3",
+    #         "category": "intro",
+    #         "text": intro[2],
+    #     })
 
     # ---------- Technical questions from Claude ----------
     for i, q in enumerate(tech_qs):
@@ -1333,8 +1407,8 @@ Job Description (JD):
         })
 
     # ---------- Hard cap at 8 questions total ----------
-    if len(questions) > 8:
-        questions = questions[:8]
+    
+    questions = questions[:4]
 
     return {
         "ok": True,
@@ -1374,7 +1448,7 @@ def interviewer_evaluate(
         raise HTTPException(400, "answers list is required and cannot be empty.")
 
     # Hard limit for testing / token saving
-    answers = answers[:8]
+    answers = answers[:4]
 
     prof = user.profile
     mj_raw = (major or (prof.major if prof else "") or "").strip()
@@ -1387,7 +1461,12 @@ def interviewer_evaluate(
         a = str(item.get("answer", "")).strip()
         if not q:
             continue
-        qa_block.append(f"Q: {q}\nA: {a or '[no answer]'}")
+        # qa_block.append(f"Q: {q}\nA: {a or '[no answer]'}")
+        short_a = (a or "").strip()
+        if len(short_a) > 500:
+            short_a = short_a[:500] + "..."
+        qa_block.append(f"Q: {q}\nA: {short_a or '[no answer]'}")
+
     qa_text = "\n\n".join(qa_block)
 
     if not qa_text.strip():
@@ -1414,7 +1493,7 @@ Candidate context:
 
 Job Description:
 ---
-{jd_text[:8000]}
+{jd_text[:1200]}
 ---
 
 The candidate answered these interview questions:
@@ -1495,7 +1574,8 @@ Return ONLY valid JSON, no markdown, no backticks, with this structure:
         raw_id = item.get("id")
         fallback_id = f"q{idx+1}"
         qid = str(input_id or raw_id or fallback_id).strip()
-
+        if input_id:
+         qid = input_id
         score_raw = item.get("score", 0)
         try:
             if isinstance(score_raw, str):
@@ -1644,20 +1724,18 @@ def job_search_serper(
         skills = profile.get("skills", []) or []
     except Exception as e:
         print("[WARN] _extract_job_profile_from_resume failed:", e)
-        # optional: simple fallback (old helper) if you kept it
         # skills = _extract_skill_tokens_from_resume(full_text, max_skills=10)
-# 🔥 Fallback: if AI-based extractor finds nothing, use old regex-based one
     if not skills:
         skills = _extract_skill_tokens_from_resume(full_text, max_skills=10)
 
-    # keep profile in sync
+    # keep profil
     if profile is None:
         profile = {}
     profile["skills"] = skills
     primary_roles = profile.get("primary_roles") or []
     seniority = (profile.get("seniority_level") or "student").lower()
 
-    # --- decide base role + level hint ---
+    # --- decide base role  ---
     base_role = (target_role or "").strip()
     if not base_role and primary_roles:
         base_role = primary_roles[0]
@@ -1676,8 +1754,6 @@ def job_search_serper(
         level_hint = '("senior" OR "5+ years")'
 
     # --- build Serper query ---
-    # Example:
-    #   Software engineer (internship OR "entry level" OR junior) jobs "Morocco" Python Django PostgreSQL
     skill_phrase = " ".join(skills[:8]) if skills else ""
     query = f'{base_role} {level_hint} jobs "{location}" {skill_phrase}'.strip()
 
@@ -1716,7 +1792,7 @@ def job_search_serper(
 
         text_for_domain = (link or source or "").lower()
         if not any(d in text_for_domain for d in jobish_domains):
-            # still allow if title clearly looks like a job
+        
             if not re.search(r"\b(emploi|job|stage|intern|engineer|developer|analyst|consultant)\b", title.lower()):
                 continue
 
