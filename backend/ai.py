@@ -465,44 +465,53 @@ def suggestions_for_improvement(
 ):
     """
     Generate realistic improvement suggestions (certificates, projects, skills to learn)
-    without modifying the resume content.
+    for ANY academic major or professional field.
+    Adapt automatically based on the resume and job description.
     """
     if not resume_text or not job_description:
         raise HTTPException(400, "resume_text and job_description are required.")
 
     prompt = f"""
-You are a career advisor for a Computer Science student with an AI / software focus.
+You are a professional career advisor. Your task is to suggest improvements
+for a candidate's profile based on their resume and a job description.
 
-Your job is to suggest **interesting, specific and realistic** ways to improve the profile
-for the given job description.
+IMPORTANT PRINCIPLES:
+- The advice MUST fit the candidate's field. Do NOT force Computer Science content.
+- Detect the field automatically from the resume + job description
+  (examples: marketing, finance, engineering, logistics, psychology, data, management, etc.)
+- NEVER invent degrees, companies, job titles, or employment history.
+- You MAY suggest realistic certificates, trainings, workshops, MOOCs,
+  volunteer activities, competitions, or small independent projects relevant to the field.
+- Keep suggestions practical and achievable for a student or early-career candidate.
+- Write in clear, natural English.
 
-VERY IMPORTANT RULES
-- Do NOT invent fake degrees, companies or long full-time experiences.
-- You MAY suggest realistic online certificates / MOOCs / nanodegrees (Coursera, edX, Udemy, AWS, Google, etc.).
-- You MAY suggest side-projects, GitHub projects, hackathons, Kaggle competitions, etc.
-- ALWAYS keep it tailored to Computer Science / software / data, not random fields.
-- Write everything in **clear, natural English** (no French, no mixed languages).
+You must output FOUR things:
 
-Focus on:
-1) **Certificates / trainings** to close the most important gaps.
-   - Name concrete programs when possible (e.g. "AWS Certified Developer – Associate",
-     "Spring Framework & Hibernate bootcamp", "Docker & Kubernetes for Java Developers").
-   - Prefer 4–6 items that clearly match the JD technologies or missing skills.
+1) **Certificates / Trainings**  
+   - 4 to 6 concrete certifications or short courses relevant to the detected field.
+   - If the field is business → give business-relevant programs.  
+   - If the field is engineering → engineering-relevant programs.  
+   - If the field is psychology → psychology-relevant programs.  
+   - Etc.
 
-2) **Practical project ideas** (side-projects) that the student could add to their CV.
-   - Each project should be 1 short line, mention stack + goal
-     (e.g. "Build a RESTful API with Spring Boot + PostgreSQL for managing ...").
-   - Prefer 4–6 concrete ideas, not generic "do more projects".
+2) **Practical Projects / Activities**  
+   - 4 to 6 specific project ideas or practical activities relevant to the candidate’s field.  
+   - Example:  
+     - Marketing → “Build a social media campaign analysis for brand X.”  
+     - Finance → “Create an investment portfolio analysis dashboard.”  
+     - HR → “Design a competency model and evaluate it using survey data.”  
+     - Engineering → “Prototype a small IoT device with basic analytics.”  
+   - NO generic “do more projects”.
 
-3) **Skills / tools to learn**.
-   - Focus on frameworks, libraries, cloud platforms, and dev practices that are
-     clearly relevant for the job description and missing skills.
-   - Prefer 6–10 short skill tokens (e.g. "Spring Security", "Docker Compose", "CI/CD with GitHub Actions").
+3) **Skills to Learn**  
+   - 6 to 10 short skill tokens relevant to the field  
+     (tools, frameworks, methods, concepts, platforms, analysis techniques, etc.)
+   - Include missing skills detected earlier ONLY if relevant.
 
-Also include a short motivational note that feels personal and encouraging for
-a final-year CS student / fresh graduate.
+4) **Motivational Note**  
+   - 1–2 sentences encouraging the candidate.
 
-INPUTS
+INPUTS:
 -------
 RESUME:
 {resume_text[:10000]}
@@ -510,15 +519,15 @@ RESUME:
 JOB DESCRIPTION:
 {job_description[:10000]}
 
-MISSING SKILLS (from previous match step, can be empty):
+MISSING SKILLS:
 {', '.join(missing) if missing else 'none'}
 
-Return ONLY valid JSON (no markdown, no backticks) with this shape:
+Return ONLY valid JSON:
 {{
-  "certificates": [string],     // at least 4 items if possible
-  "projects": [string],         // at least 4 items if possible
-  "skills_to_learn": [string],  // 6–10 short tokens
-  "note": "one or two sentences of motivation in English"
+  "certificates": [string],
+  "projects": [string],
+  "skills_to_learn": [string],
+  "note": "string"
 }}
 """
 
@@ -528,7 +537,7 @@ Return ONLY valid JSON (no markdown, no backticks) with this shape:
         model_id=DEFAULT_CLAUDE,
         aws_region=DEFAULT_AWS_REGION,
         max_tokens=700,
-        temperature=0.7,  # a bit more creative than before
+        temperature=0.7,
     )
 
     cleaned = out.strip().strip("`").replace("json", "", 1).strip()
@@ -537,7 +546,7 @@ Return ONLY valid JSON (no markdown, no backticks) with this shape:
     except Exception:
         data = {"raw": cleaned}
 
-    # safety: ensure keys exist so frontend never explodes
+    # safety
     if isinstance(data, dict):
         data.setdefault("certificates", [])
         data.setdefault("projects", [])
@@ -545,6 +554,7 @@ Return ONLY valid JSON (no markdown, no backticks) with this shape:
         data.setdefault("note", "")
 
     return {"ok": True, "suggestions": data}
+
 
 
 
