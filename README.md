@@ -1,6 +1,6 @@
 # HiringBuddy – AI-Powered Job Search & Resume Matching Platform
 
-## 🚀 Overview
+## Overview
 
 ## ✨ Key Features
 - Resume parsing, chunking, and semantic vector storage
@@ -9,13 +9,13 @@
 - Interactive interview practice
 - Student-friendly dashboard
 
-## 🧠 Architecture
+## Architecture
 
 
-## 🧩 Multi-Agent System
+## Multi-Agent System
 
 
-## 🗄️ Database Schema
+## Database Schema
 
 
 ## ⚙️ Setup Instructions
@@ -25,7 +25,7 @@ Environment variables
 Running locally  
 Building for production
 
-## 📸 Screenshots
+## Screenshots
 soon
 
 ## 📝 Future Work
