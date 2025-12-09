@@ -29,7 +29,7 @@ Building for production
 soon
 
 ## 📝 Future Work
-CrewAI orchestration
+CrewAI orchestration  
 Outlook email integration
 
 ## 🎥 DEMO
